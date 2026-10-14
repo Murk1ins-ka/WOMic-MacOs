@@ -1,4 +1,18 @@
-# WO Mic for macOS (Native Port & GUI)
+# WO Mic for macOS (Native Studio Port & GUI)
+
+[![Release](https://img.shields.io/badge/Release-v1.0.0-green.svg?style=flat-square)](https://github.com/Murk1ins-ka/WOMic-MacOs/releases)
+[![Platform](https://img.shields.io/badge/Platform-macOS%2011%2B-blue.svg?style=flat-square&logo=apple)](https://github.com/Murk1ins-ka/WOMic-MacOs)
+[![Swift](https://img.shields.io/badge/Swift-Native-orange.svg?style=flat-square&logo=swift)](https://github.com/Murk1ins-ka/WOMic-MacOs)
+[![Driver](https://img.shields.io/badge/Audio%20Driver-Pre--bundled-purple.svg?style=flat-square)](https://github.com/Murk1ins-ka/WOMic-MacOs)
+
+> **Хэштеги / Topics:** `#womic` `#womic-macos` `#virtual-microphone` `#audio` `#coreaudio` `#opus` `#vb-cable` `#microphone` `#swift` `#gui`
+
+---
+
+### 💾 Быстрая загрузка:
+Скачайте готовый установщик: **[WOMic-macOS.dmg](WOMic-macOS.dmg)** (1.4 МБ). Перетащите `WOMic.app` в папку `Applications`.
+
+---
 
 Нативный порт клиента **WO Mic** для macOS со встроенным виртуальным аудиодрайвером, графическим интерфейсом (GUI) и командным скриптом.
 
