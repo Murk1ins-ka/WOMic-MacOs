@@ -16,7 +16,7 @@
 
 Нативный порт клиента **WO Mic** для macOS со встроенным виртуальным аудиодрайвером, графическим интерфейсом (GUI) и командным скриптом.
 
-Расположение: `~/Documents/womic-macos` (`/Users/murk1ins/Documents/womic-macos`).
+Расположение: `~/Documents/womic-macos` (`/Users/---/Documents/womic-macos`).
 
 ---
 
