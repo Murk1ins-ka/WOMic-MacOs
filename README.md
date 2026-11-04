@@ -105,6 +105,17 @@ cd ~/Documents/womic-macos
 
 ---
 
+## 🛠 Сборка из исходников
+
+```bash
+./build.sh          # womic + WOMic.app (Universal: Intel + Apple Silicon, macOS 11+)
+./build.sh --dmg    # дополнительно WOMic-macOS.dmg
+```
+
+Минимальную версию macOS можно изменить: `MACOS_MIN=12.0 ./build.sh`.
+
+---
+
 ## 📁 Структура папки
 
 ```

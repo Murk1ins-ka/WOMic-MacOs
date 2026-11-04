@@ -99,7 +99,6 @@ public final class WOMicClient {
         
         var reuse: Int32 = 1
         setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
-        setsockopt(udpSocket, SOL_SOCKET, SO_REUSEPORT, &reuse, socklen_t(MemoryLayout<Int32>.size))
         
         var rcvBuf: Int32 = 65536
         setsockopt(udpSocket, SOL_SOCKET, SO_RCVBUF, &rcvBuf, socklen_t(MemoryLayout<Int32>.size))
@@ -134,6 +133,9 @@ public final class WOMicClient {
         var timeout = timeval(tv_sec: 5, tv_usec: 0)
         setsockopt(tcpSocket, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(tcpSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        // Don't crash with SIGPIPE if the phone closes the control connection
+        var noSigPipe: Int32 = 1
+        setsockopt(tcpSocket, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
         
         var serverAddr = sockaddr_in()
         serverAddr.sin_family = sa_family_t(AF_INET)
@@ -270,54 +272,51 @@ public final class WOMicClient {
         state = .connected("Streaming from \(host)")
         
         // 7. Receive Audio Packets Loop
-        var udpTimeout = timeval(tv_sec: 1, tv_usec: 0)
+        // The phone drops the session after ~5 s of silence on the control
+        // connection, so send a heartbeat (cmd 0x69, empty payload, no reply)
+        // every second, like the official client does.
+        let heartbeat: [UInt8] = [0x69, 0x00, 0x00, 0x00, 0x00]
+        var lastHeartbeat = Date()
+        var udpTimeout = timeval(tv_sec: 0, tv_usec: 500_000)
         setsockopt(udpSocket, SOL_SOCKET, SO_RCVTIMEO, &udpTimeout, socklen_t(MemoryLayout<timeval>.size))
         
         let bufCapacity = 4096
         var buffer = [UInt8](repeating: 0, count: bufCapacity)
         
         while isRunning {
+            if Date().timeIntervalSince(lastHeartbeat) >= 1.0 {
+                lastHeartbeat = Date()
+                if !sendAll(tcpSocket, data: heartbeat) {
+                    if isRunning {
+                        disconnect()
+                        state = .error("Phone closed the connection (WO Mic stopped on the phone?)")
+                    }
+                    return
+                }
+            }
+            
             let received = recv(udpSocket, &buffer, bufCapacity, 0)
             if received > 0 {
                 stats.packetsReceived += 1
                 stats.bytesReceived += UInt64(received)
                 bytesSinceLastCalc += UInt64(received)
                 
-                // Decode incoming WO Mic audio packets
-                if received == 1920 {
-                    // Direct uncompressed PCM frame fallback
-                    audioEngine.pushPCMData(Data(buffer[0..<received]))
-                } else if buffer[0] == 4 && received > 11 {
-                    // Standard WO Mic UDP audio packet:
-                    // Byte 0: 0x04 (CMD_AUDIO)
-                    // Bytes 1..3: Length of payload (24-bit big endian integer)
-                    // Bytes 4..5: Packet sequence number (16-bit)
-                    // Bytes 6..9: Timestamp (32-bit)
-                    // Byte 10: Flags / mode (8-bit)
-                    // Bytes 11..<received: Opus encoded audio payload
+                // WO Mic UDP audio packet:
+                //   Byte 0:      0x04 (CMD_AUDIO)
+                //   Bytes 1..3:  payload length (24-bit big endian) = packet size - 4
+                //   Bytes 4..5:  sequence number
+                //   Bytes 6..9:  timestamp (ms)
+                //   Byte 10:     0x05
+                //   Bytes 11...: Opus frame (48 kHz mono, 20 ms, TOC 0xF8)
+                // Short service packets (e.g. the first one after start) are skipped.
+                if buffer[0] == 4 && received > 12 {
                     let opusPayload = Data(buffer[11..<received])
                     if let pcm = opusDecoder?.decode(packet: opusPayload) {
                         audioEngine.pushPCMData(pcm)
-                    } else {
-                        // Fallback in case of alternative header offset
-                        if let pcm = opusDecoder?.decode(packet: Data(buffer[6..<received])) {
-                            audioEngine.pushPCMData(pcm)
-                        } else if let pcm = opusDecoder?.decode(packet: Data(buffer[0..<received])) {
-                            audioEngine.pushPCMData(pcm)
-                        }
                     }
-                } else if received > 6 {
-                    // Packet without the 4-byte transport header
-                    if let pcm = opusDecoder?.decode(packet: Data(buffer[6..<received])) {
-                        audioEngine.pushPCMData(pcm)
-                    } else if let pcm = opusDecoder?.decode(packet: Data(buffer[0..<received])) {
-                        audioEngine.pushPCMData(pcm)
-                    }
-                } else if received > 0 {
-                    let opusFrame = Data(buffer[0..<received])
-                    if let pcm = opusDecoder?.decode(packet: opusFrame) {
-                        audioEngine.pushPCMData(pcm)
-                    }
+                } else if received == 1920 {
+                    // Uncompressed 20 ms PCM frame
+                    audioEngine.pushPCMData(Data(buffer[0..<received]))
                 }
                 
                 let now = Date()
