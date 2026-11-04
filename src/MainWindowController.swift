@@ -559,9 +559,12 @@ public final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     
     @objc private func connectToggled() {
-        if client.state != .disconnected {
+        switch client.state {
+        case .connecting, .connected:
             client.disconnect()
             return
+        case .disconnected, .error:
+            break
         }
         
         let ip = ipField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)

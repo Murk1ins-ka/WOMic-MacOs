@@ -32,7 +32,7 @@ function executable_check() {
     if [ ! -x "$BIN" ]; then
         if [ -f "$SCRIPT_DIR/src/main.swift" ]; then
             printf "WO Mic macOS binary not found! Compiling from Swift sources now...\n"
-            swiftc -O -framework Cocoa -framework AudioToolbox -framework CoreAudio \
+            swiftc -O -target "$(uname -m)-apple-macos11.0" -framework Cocoa -framework AudioToolbox -framework CoreAudio \
                 "$SCRIPT_DIR/src/AudioEngine.swift" \
                 "$SCRIPT_DIR/src/OpusDecoder.swift" \
                 "$SCRIPT_DIR/src/WOMicClient.swift" \
